@@ -356,23 +356,22 @@ function M.subagent()
 
   local function set_border_hl(prompt_bufnr, preview_active)
     local picker = action_state.get_current_picker(prompt_bufnr)
-    local function win_of(bufnr)
-      if not bufnr then return nil end
-      local w = vim.fn.bufwinid(bufnr)
-      return (w ~= -1 and vim.api.nvim_win_is_valid(w)) and w or nil
+    local layout = picker.layout
+    if not layout then return end
+
+    local function hl_border(component, active)
+      if not component then return end
+      local win = component.border and component.border.win_id
+      if win and vim.api.nvim_win_is_valid(win) then
+        vim.wo[win].winhighlight = active
+          and "Normal:TelescopePromptBorder"
+          or  "Normal:TelescopeBorder"
+      end
     end
-    local pwin = win_of(picker.preview_bufnr)
-    local rwin = win_of(picker.results_bufnr)
-    if pwin then
-      vim.wo[pwin].winhighlight = preview_active
-        and "FloatBorder:TelescopePromptBorder"
-        or  "FloatBorder:TelescopeBorder"
-    end
-    if rwin then
-      vim.wo[rwin].winhighlight = preview_active
-        and "FloatBorder:TelescopeBorder"
-        or  "FloatBorder:TelescopePromptBorder"
-    end
+
+    hl_border(layout.preview, preview_active)
+    hl_border(layout.results, not preview_active)
+    hl_border(layout.prompt,  not preview_active)
   end
 
   pickers.new({}, {
