@@ -38,6 +38,19 @@ end
 
 -- ── status ───────────────────────────────────────────────────────────
 
+local MODEL_LIMITS = {
+  ["sonnet"] = 200000,
+  ["opus"]   = 200000,
+  ["haiku"]  = 200000,
+}
+
+local function model_limit(model)
+  for key, limit in pairs(MODEL_LIMITS) do
+    if model:find(key) then return limit end
+  end
+  return 200000
+end
+
 local function latest_session_stats()
   local handle = io.popen("ls -t " .. projects_dir .. "*/*.jsonl 2>/dev/null | head -1")
   if not handle then return nil end
@@ -45,24 +58,28 @@ local function latest_session_stats()
   handle:close()
   if not path or path == "" then return nil end
 
-  local handle2 = io.popen("tail -20 '" .. path .. "' 2>/dev/null")
+  local handle2 = io.popen("tail -30 '" .. path .. "' 2>/dev/null")
   if not handle2 then return nil end
   local content = handle2:read("*a")
   handle2:close()
 
-  local model, input_tok, output_tok, cache_read = "unknown", 0, 0, 0
+  local model, input_tok, output_tok, cache_read, cache_create = "unknown", 0, 0, 0, 0
   for line in content:gmatch("[^\n]+") do
     local ok, d = pcall(vim.json.decode, line)
     if ok and d then
       local msg = d.message or {}
       if msg.model and msg.model ~= "" then model = msg.model end
       local u = msg.usage or {}
-      input_tok  = u.input_tokens or input_tok
-      output_tok = u.output_tokens or output_tok
-      cache_read = u.cache_read_input_tokens or cache_read
+      input_tok     = u.input_tokens or input_tok
+      output_tok    = u.output_tokens or output_tok
+      cache_read    = u.cache_read_input_tokens or cache_read
+      cache_create  = u.cache_creation_input_tokens or cache_create
     end
   end
-  return { model = model, input = input_tok, output = output_tok, cache = cache_read }
+  local total   = input_tok + cache_read + cache_create
+  local limit   = model_limit(model)
+  local pct     = math.floor(total / limit * 100)
+  return { model = model, total = total, limit = limit, pct = pct, output = output_tok }
 end
 
 local function update_winbar()
@@ -76,14 +93,7 @@ local function update_winbar()
       table.insert(parts, label)
     end
   end
-
-  local stats = cached_stats
-  local model = stats and stats.model:gsub("claude%-", ""):gsub("%-2%d%d%d%d%d%d%d", "") or "?"
-  local right = stats
-    and string.format(" %s  in:%d out:%d cache:%d ", model, stats.input, stats.output, stats.cache)
-    or string.format(" %s ", model)
-
-  vim.wo[state.win].winbar = table.concat(parts, "│") .. "%=" .. right
+  vim.wo[state.win].winbar = table.concat(parts, "│")
 end
 
 local function refresh_stats()
@@ -441,7 +451,9 @@ function M.status_line()
   local s = cached_stats
   if not s then return "" end
   local model = s.model:gsub("claude%-", ""):gsub("%-2%d%d%d%d%d%d%d", "")
-  return string.format(" %s  in:%d out:%d cache:%d", model, s.input, s.output, s.cache)
+  local limit_k = math.floor(s.limit / 1000)
+  local total_k = math.floor(s.total / 1000)
+  return string.format(" %s  %dk/%dk  %d%%", model, total_k, limit_k, s.pct)
 end
 
 function M.toggle()
