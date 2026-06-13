@@ -356,12 +356,8 @@ function M.subagent()
 
   local function set_border_hl(prompt_bufnr, preview_active)
     local picker = action_state.get_current_picker(prompt_bufnr)
-    local layout = picker.layout
-    if not layout then return end
 
-    local function hl_border(component, active)
-      if not component then return end
-      local win = component.border and component.border.win_id
+    local function hl_win(win, active)
       if win and vim.api.nvim_win_is_valid(win) then
         vim.wo[win].winhighlight = active
           and "Normal:TelescopePromptBorder"
@@ -369,9 +365,9 @@ function M.subagent()
       end
     end
 
-    hl_border(layout.preview, preview_active)
-    hl_border(layout.results, not preview_active)
-    hl_border(layout.prompt,  not preview_active)
+    hl_win(picker.preview_border_win, preview_active)
+    hl_win(picker.results_border_win, not preview_active)
+    hl_win(picker.prompt_border_win,  not preview_active)
   end
 
   pickers.new({}, {
