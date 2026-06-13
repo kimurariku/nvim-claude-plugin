@@ -453,7 +453,7 @@ function M.status_line()
   local model = s.model:gsub("claude%-", ""):gsub("%-2%d%d%d%d%d%d%d", "")
   local limit_k = math.floor(s.limit / 1000)
   local total_k = math.floor(s.total / 1000)
-  return string.format(" %s  %dk/%dk  %d%%", model, total_k, limit_k, s.pct)
+  return string.format(" %s  %dk/%dk  %d%%%%", model, total_k, limit_k, s.pct)
 end
 
 function M.toggle()
