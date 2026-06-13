@@ -14,6 +14,7 @@ local input_state = {
 local claude_cmd    = vim.fn.expand("$HOME") .. "/.npm-global/bin/claude"
 local template_dir  = vim.fn.expand("$HOME") .. "/.claude/templates/"
 local projects_dir  = vim.fn.expand("$HOME") .. "/.claude/projects/"
+local agent_dir     = vim.fn.expand("$HOME") .. "/.claude/agents/"
 local status_timer  = nil
 local cached_stats  = nil
 
@@ -303,6 +304,72 @@ function M.template()
   }):find()
 end
 
+-- ── subagents ────────────────────────────────────────────────────────
+
+function M.subagent()
+  local agents = {}
+  local files = vim.fn.glob(agent_dir .. "*.md", false, true)
+  for _, path in ipairs(files) do
+    local lines = vim.fn.readfile(path)
+    local name = vim.fn.fnamemodify(path, ":t:r")
+    local description = ""
+    for _, line in ipairs(lines) do
+      local n = line:match("^name:%s*(.+)")
+      if n then name = vim.trim(n) end
+      local d = line:match("^description:%s*(.+)")
+      if d then description = vim.trim(d) end
+    end
+    table.insert(agents, {
+      name        = name,
+      description = description,
+      text        = table.concat(lines, "\n"),
+      path        = path,
+    })
+  end
+
+  if #agents == 0 then
+    vim.notify("No agents found in " .. agent_dir, vim.log.levels.WARN)
+    return
+  end
+
+  local pickers      = require("telescope.pickers")
+  local finders      = require("telescope.finders")
+  local conf         = require("telescope.config").values
+  local actions      = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+  local previewers   = require("telescope.previewers")
+
+  local previewer = previewers.new_buffer_previewer({
+    title = "Agent",
+    define_preview = function(self, entry)
+      local lines = vim.split(entry.value.text, "\n", { plain = true })
+      vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+      vim.bo[self.state.bufnr].filetype = "markdown"
+    end,
+  })
+
+  pickers.new({}, {
+    prompt_title = "Claude Sub-Agents",
+    finder = finders.new_table({
+      results = agents,
+      entry_maker = function(a)
+        local display = a.description ~= "" and (a.name .. "  " .. a.description) or a.name
+        return { value = a, display = display, ordinal = a.name .. " " .. a.description }
+      end,
+    }),
+    sorter    = conf.generic_sorter({}),
+    previewer = previewer,
+    attach_mappings = function(prompt_bufnr)
+      actions.select_default:replace(function()
+        actions.close(prompt_bufnr)
+        local a = action_state.get_selected_entry().value
+        vim.cmd("edit " .. vim.fn.fnameescape(a.path))
+      end)
+      return true
+    end,
+  }):find()
+end
+
 -- ── public API ────────────────────────────────────────────────────────
 
 function M.status_line()
@@ -351,10 +418,11 @@ end
 
 function M.setup(opts)
   opts = opts or {}
-  vim.api.nvim_create_user_command("Claude",        M.toggle,      {})
-  vim.api.nvim_create_user_command("ClaudeNew",     M.new_session, {})
-  vim.api.nvim_create_user_command("ClaudeInput",   M.open_input,  {})
-  vim.api.nvim_create_user_command("ClaudeTemplate", M.template,   {})
+  vim.api.nvim_create_user_command("Claude",          M.toggle,    {})
+  vim.api.nvim_create_user_command("ClaudeNew",       M.new_session, {})
+  vim.api.nvim_create_user_command("ClaudeInput",     M.open_input,  {})
+  vim.api.nvim_create_user_command("ClaudeTemplate",  M.template,    {})
+  vim.api.nvim_create_user_command("ClaudeSubAgent",  M.subagent,    {})
 
   vim.keymap.set("n", opts.new_key      or "<M-n>",    M.new_session, { desc = "Claude: New session" })
   vim.keymap.set("n", opts.input_key    or "<M-i>",    M.open_input,  { desc = "Claude: Open input" })
