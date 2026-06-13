@@ -316,8 +316,12 @@ function M.subagent()
     for _, line in ipairs(lines) do
       local n = line:match("^name:%s*(.+)")
       if n then name = vim.trim(n) end
-      local d = line:match("^description:%s*(.+)")
-      if d then description = vim.trim(d) end
+      local ja = line:match("^ja_description:%s*(.+)")
+      if ja then description = vim.trim(ja) end
+      if description == "" then
+        local d = line:match("^description:%s*(.+)")
+        if d then description = vim.trim(d) end
+      end
     end
     table.insert(agents, {
       name        = name,
