@@ -363,8 +363,8 @@ function M.subagent()
     local function hl_win(win, active)
       if win and vim.api.nvim_win_is_valid(win) then
         vim.wo[win].winhighlight = active
-          and "Normal:TelescopePromptBorder"
-          or  "Normal:TelescopeBorder"
+          and "Normal:DiagnosticInfo"
+          or  "Normal:Comment"
       end
     end
 
