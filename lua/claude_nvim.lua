@@ -354,8 +354,11 @@ function M.subagent()
 
   local in_preview = false
 
+  local ts_state = require("telescope.state")
+
   local function set_border_hl(prompt_bufnr, preview_active)
-    local picker = action_state.get_current_picker(prompt_bufnr)
+    local status = ts_state.get_status(prompt_bufnr)
+    if not status then return end
 
     local function hl_win(win, active)
       if win and vim.api.nvim_win_is_valid(win) then
@@ -365,9 +368,9 @@ function M.subagent()
       end
     end
 
-    hl_win(picker.preview_border_win, preview_active)
-    hl_win(picker.results_border_win, not preview_active)
-    hl_win(picker.prompt_border_win,  not preview_active)
+    hl_win(status.preview_border_win, preview_active)
+    hl_win(status.results_border_win, not preview_active)
+    hl_win(status.prompt_border_win,  not preview_active)
   end
 
   pickers.new({}, {
@@ -384,6 +387,17 @@ function M.subagent()
     attach_mappings = function(prompt_bufnr, map)
       -- 初期状態: 検索側をハイライト
       vim.schedule(function() set_border_hl(prompt_bufnr, false) end)
+
+      -- DEBUG: <C-b>でstatusの構造を確認
+      map("i", "<C-b>", function()
+        local st = ts_state.get_status(prompt_bufnr)
+        local info = {
+          preview_border_win = st and st.preview_border_win,
+          results_border_win = st and st.results_border_win,
+          prompt_border_win  = st and st.prompt_border_win,
+        }
+        vim.notify(vim.inspect(info), vim.log.levels.INFO)
+      end)
 
       map("i", "<Right>", function()
         in_preview = true
