@@ -354,6 +354,27 @@ function M.subagent()
 
   local in_preview = false
 
+  local function set_border_hl(prompt_bufnr, preview_active)
+    local picker = action_state.get_current_picker(prompt_bufnr)
+    local function win_of(bufnr)
+      if not bufnr then return nil end
+      local w = vim.fn.bufwinid(bufnr)
+      return (w ~= -1 and vim.api.nvim_win_is_valid(w)) and w or nil
+    end
+    local pwin = win_of(picker.preview_bufnr)
+    local rwin = win_of(picker.results_bufnr)
+    if pwin then
+      vim.wo[pwin].winhighlight = preview_active
+        and "FloatBorder:TelescopePromptBorder"
+        or  "FloatBorder:TelescopeBorder"
+    end
+    if rwin then
+      vim.wo[rwin].winhighlight = preview_active
+        and "FloatBorder:TelescopeBorder"
+        or  "FloatBorder:TelescopePromptBorder"
+    end
+  end
+
   pickers.new({}, {
     prompt_title = "Claude Sub-Agents",
     finder = finders.new_table({
@@ -366,8 +387,17 @@ function M.subagent()
     sorter    = conf.generic_sorter({}),
     previewer = previewer,
     attach_mappings = function(prompt_bufnr, map)
-      map("i", "<Right>", function() in_preview = true end)
-      map("i", "<Left>",  function() in_preview = false end)
+      -- 初期状態: 検索側をハイライト
+      vim.schedule(function() set_border_hl(prompt_bufnr, false) end)
+
+      map("i", "<Right>", function()
+        in_preview = true
+        set_border_hl(prompt_bufnr, true)
+      end)
+      map("i", "<Left>", function()
+        in_preview = false
+        set_border_hl(prompt_bufnr, false)
+      end)
 
       map("i", "<Up>", function()
         if in_preview then
