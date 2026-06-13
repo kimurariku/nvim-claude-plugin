@@ -352,6 +352,8 @@ function M.subagent()
     end,
   })
 
+  local in_preview = false
+
   pickers.new({}, {
     prompt_title = "Claude Sub-Agents",
     finder = finders.new_table({
@@ -363,8 +365,28 @@ function M.subagent()
     }),
     sorter    = conf.generic_sorter({}),
     previewer = previewer,
-    attach_mappings = function(prompt_bufnr)
+    attach_mappings = function(prompt_bufnr, map)
+      map("i", "<Right>", function() in_preview = true end)
+      map("i", "<Left>",  function() in_preview = false end)
+
+      map("i", "<Up>", function()
+        if in_preview then
+          actions.preview_scrolling_up(prompt_bufnr)
+        else
+          actions.move_selection_previous(prompt_bufnr)
+        end
+      end)
+
+      map("i", "<Down>", function()
+        if in_preview then
+          actions.preview_scrolling_down(prompt_bufnr)
+        else
+          actions.move_selection_next(prompt_bufnr)
+        end
+      end)
+
       actions.select_default:replace(function()
+        in_preview = false
         actions.close(prompt_bufnr)
         local a = action_state.get_selected_entry().value
         vim.cmd("edit " .. vim.fn.fnameescape(a.path))
